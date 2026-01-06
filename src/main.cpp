@@ -27,7 +27,7 @@
 // Timer ID
 #define TIMER_INJECT 1
 
-const wchar_t CLASS_NAME[] = L"YamtInjectorWindowClass";
+const wchar_t CLASS_NAME[] = L"YamtWindowClass";
 
 HWND hEdit = NULL;
 HWND hBtnInject = NULL;

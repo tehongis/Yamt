@@ -3,7 +3,7 @@ REM Build script for Yamt injector — run from __Developer Command Prompt for V
 
 setlocal
 set SRC_DIR=%~dp0\src\
-set OUT_DIR=%SRC_DIR%..\bin\
+set OUT_DIR=%SRC_DIR%..\build\
 
 if not exist "%OUT_DIR%" mkdir "%OUT_DIR%"
 

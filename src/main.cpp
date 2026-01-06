@@ -1,12 +1,7 @@
-// src/injector/main.cpp
-// Yamt - Keyboard Input Injector (with jitter & tokens)
-// - Edit box defaults to "{F10}"
-// - Base interval slider: 1..60 seconds
-// - Variation slider: 100..900 ms (random ± jitter per injection)
-// - "Inject Now", "Start", "Stop" controls
-// - Token parsing supports {F1}..{F24}, {ENTER}, {TAB}, {ESC}, {SPACE},
-//   {BACKSPACE}, {UP}, {DOWN}, {LEFT}, {RIGHT}
-// Build: MSVC (Visual Studio). Link with comctl32.lib
+// main.cpp
+// Win32 app to inject keyboard input at a user-selected interval (1-60s) with jitter (100-900ms).
+// Supports tokens like {F10} (default), {ENTER}, {TAB}, arrow keys, etc.
+// Compile with Visual Studio (cl), link comctl32.lib
 
 #include <windows.h>
 #include <commctrl.h>
@@ -80,6 +75,7 @@ std::wstring GetEditText() {
 // Send a sequence of INPUT events
 void SendInputs(const std::vector<INPUT>& inputs) {
     if (inputs.empty()) return;
+    // SendInput requires non-const pointer
     std::vector<INPUT> tmp = inputs;
     SendInput((UINT)tmp.size(), tmp.data(), sizeof(INPUT));
 }
@@ -122,7 +118,7 @@ void SendParsedInput(const std::wstring& text) {
             if (j < n && text[j] == L'}') {
                 // token found
                 std::wstring token = text.substr(i + 1, j - (i + 1));
-                // trim and uppercase
+                // uppercase trim
                 token.erase(token.begin(), std::find_if(token.begin(), token.end(), [](wchar_t c){ return !iswspace(c); }));
                 token.erase(std::find_if(token.rbegin(), token.rend(), [](wchar_t c){ return !iswspace(c); }).base(), token.end());
                 std::transform(token.begin(), token.end(), token.begin(), towupper);
@@ -130,6 +126,7 @@ void SendParsedInput(const std::wstring& text) {
                 bool handled = false;
                 // F keys: F1..F24
                 if (!token.empty() && token[0] == L'F') {
+                    // parse number after F
                     int num = 0;
                     try {
                         num = std::stoi(std::wstring(token.begin() + 1, token.end()));
@@ -169,6 +166,7 @@ void SendParsedInput(const std::wstring& text) {
                         AppendVirtualKey(inputs, VK_RIGHT);
                         handled = true;
                     }
+                    // add more tokens here if desired
                 }
 
                 if (handled) {
@@ -208,6 +206,7 @@ UINT ComputeNextIntervalMs() {
 }
 
 void StartInjectionTimer(HWND hWnd) {
+    // Single-shot behavior: compute first interval, set timer once.
     UINT ms = ComputeNextIntervalMs();
     SetTimer(hWnd, TIMER_INJECT, ms, NULL);
     EnableWindow(hBtnStart, FALSE);
@@ -223,6 +222,7 @@ void StopInjectionTimer(HWND hWnd) {
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
     case WM_CREATE: {
+        // Initialize common controls for trackbars
         INITCOMMONCONTROLSEX icex;
         icex.dwSize = sizeof(icex);
         icex.dwICC = ICC_BAR_CLASSES;
@@ -308,6 +308,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     }
     case WM_TIMER: {
         if (wParam == TIMER_INJECT) {
+            // Single-shot behavior: kill current timer, inject, then schedule next with variation
             KillTimer(hWnd, TIMER_INJECT);
 
             std::wstring txt = GetEditText();
@@ -315,6 +316,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 SendParsedInput(txt);
             }
 
+            // Schedule next
             UINT ms = ComputeNextIntervalMs();
             SetTimer(hWnd, TIMER_INJECT, ms, NULL);
         }
@@ -331,6 +333,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 }
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
+    // Seed RNG
     rng.seed((uint64_t)std::chrono::high_resolution_clock::now().time_since_epoch().count());
 
     WNDCLASSW wc = { };
